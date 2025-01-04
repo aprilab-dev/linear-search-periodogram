@@ -1,12 +1,10 @@
 import numpy as np
 import json
-import sys
 
-sys.path.append("scientific_research_with_python_demo/Period_ILS_method")  # 添加路径,根据实际情况修改
-from utilis import period_ils
+import component.utilis as utilis
 import time
 from joblib import Parallel, delayed
-import os
+
 
 # ================================================================================================
 # 关于Linear-Period的参数估计结果的实验
@@ -20,7 +18,7 @@ import os
 
 # 实验代码
 # 读取参数文件
-with open("scientific_research_with_python_demo/Period_ILS_method/template/parms_period_ils.json") as f:
+with open("parms_period_ils.json") as f:
     param_file = json.load(f)
 
 # 设置仿真模拟形变速率V范围和高度h范围
@@ -47,23 +45,23 @@ for k, h in enumerate(H_orig):
     param_file["param_simulation"]["height"] = h
     # 并行计算，计算不同形变速率v下的实验结果
     data = Parallel(n_jobs=30)(
-        delayed(period_ils.lab_period)(param_file, check_times=check_time, change_name="velocity", value=v, data_id=i, sat_name="sentinel-1") for i, v in enumerate(V_orig)
+        delayed(utilis.lab_period)(param_file, check_times=check_time, change_name="velocity", value=v, data_id=i, sat_name="sentinel-1") for i, v in enumerate(V_orig)
     )
     # 存储实验结果
-    data_all[k] = period_ils.dict_collect(data)
+    data_all[k] = utilis.dict_collect(data)
     t2 = time.time()
     print(f"height={h} done", f"Time: {t2 - t1} s")
 
 T2 = time.time()
 print(f"Time: {T2 - T1} s")
 # 整合实验结果，获得MAE等参数估计结果
-success_rate, v_est_data, h_est_data, a_est1st, mae_v, mae_h = period_ils.data_collect(data_all, len(H_orig), len(V_orig), check_times=check_time, nifg=param_file["Nifg"])
+success_rate, v_est_data, h_est_data, a_est1st, mae_v, mae_h = utilis.data_collect(data_all, len(H_orig), len(V_orig), check_times=check_time, nifg=param_file["Nifg"])
 # print(success_rate)
 # print(h_est_data, v_est_data)
 
 # 保存实验结果到本地
 np.savez(
-    "scientific_research_with_python_demo/template_ILS_IB/data_save_period_ils/lab_v_linear_2.npz",
+    "./lab_v_linear_2.npz",
     data_all=data_all,
     success_rate=success_rate,
     v_est_data=v_est_data,
