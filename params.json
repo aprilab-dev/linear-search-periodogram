@@ -6,46 +6,18 @@
         "incidence_angle": 38,
         "wavelength":0.056
     },
-    "ERS":{
-        "Bn":333,
-        "revisit_cycle": 35,
-        "H":780000,
-        "incidence_angle": 23,
-        "wavelength":0.056
-    },
     "Nifg": 30, 
     "param_simulation": {
         "height":10,
         "velocity":0.01
     },
-    "param_pseudo": {
-        "height":0,
-        "velocity":0
-    },
     "noise_level": 10, 
-    "bounds": {
-        "dh":10,
-        "dv":5
-    },
-    "sigma_y": 40,
-    "coarse_search": 
-    {"h_range":[-10,10],
-    "v_range":[-290,290],
-    "step_size":[2,0.005]
-},
-    "fine_search": {
+    "search_range": {
         "h_range":[-20 ,20],
         "v_range":[-1450,1450],
-        "step_size":[1,0.0001]
+        "h_step":1,
+        "v_step":0.0001
     },
-    "h_sum_range":[-20,20],
-    "period_est_mode": "grid-period",
-    "grid-period":{
-        "mode":"iterative",
-        "iterative_times":2
-    },
-    "linear-period":{
-        "mode":"iterative",
-        "iterative_times":2
-    }
+    "period_est_mode": "linear-period",
+    "iterative_times":2
 }
