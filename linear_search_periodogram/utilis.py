@@ -15,8 +15,8 @@
 """
 
 import numpy as np
-from component.simulated_phase import SimulatedPhase
-from component.periodogram import Periodogram
+from linear_search_periodogram.simulated_phase import SimulatedPhase
+from linear_search_periodogram.periodogram import Periodogram
 
 def data_collect(data, changed_param_length, V_orig_length, check_times, nifg):
     """_Parallel experimental data collation and collection_
@@ -123,7 +123,7 @@ def lab_period(param_file, check_times, change_name, value, data_id, sat_name="s
         param_file["param_simulation"][change_name] = value
     else:
         param_file[change_name] = value
-    print(param_file["param_simulation"])
+
     success_time = 0
     data = {}
     # Repeated test

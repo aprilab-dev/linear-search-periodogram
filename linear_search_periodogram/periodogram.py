@@ -15,19 +15,19 @@ class Periodogram:
         par2ph : _dict_
             _The conversion coefficient from parameters v and h to phase__
         """
-        self.param = param
+        self.params      = param
         self.arc_phase  = phase_obs
         self.par2ph     = par2ph
-        self.param      = {"height": 0, "velocity": 0}
+        self.result     = {"height": 0, "velocity": 0}
 
         # Construct the search space.
-        h_start = self.param["search_range"]["h_range"][0]
-        h_end   = self.param["search_range"]["h_range"][1]
-        h_step  = self.param["search_range"]["h_step"]
+        h_start = self.params["search_range"]["h_range"][0]
+        h_end   = self.params["search_range"]["h_range"][1]
+        h_step  = self.params["search_range"]["h_step"]
 
-        v_start = self.param["search_range"]["h_range"][0]
-        v_end   = self.param["search_range"]["h_range"][1]
-        v_step  = self.param["search_range"]["v_step"]
+        v_start = self.params["search_range"]["h_range"][0]
+        v_end   = self.params["search_range"]["h_range"][1]
+        v_step  = self.params["search_range"]["v_step"]
 
         self.height_search_space   = np.arange(h_start, h_end + 1, 1) * h_step
         self.velocity_search_space = np.arange(v_start, v_end + 1, 1) * v_step
@@ -78,15 +78,15 @@ class Periodogram:
         e_phase_sub_v = np.exp(1j * phase_sub_v)
         h_est = self.linear_search(e_phase_sub_v, self.par2ph["height"], self.height_search_space)
 
-        self.param = {"height": h_est, "velocity": v_est}
+        self.result = {"height": h_est, "velocity": v_est}
 
-        if self.param["iterative_times"] != 0:
+        if self.params["iterative_times"] != 0:
             self.iteration()
     
     def iteration(self):
-        iterative_times = self.param["iterative_times"]
-        h_est = self.param["height"]
-        v_est = self.param["velocity"]
+        iterative_times = self.params["iterative_times"]
+        h_est = self.result["height"]
+        v_est = self.result["velocity"]
         for i in range(iterative_times):
             # remove height term from delta_phase
             phase_sub_h = self.arc_phase - h_est * self.par2ph["height"]
@@ -102,7 +102,7 @@ class Periodogram:
             e_phase_sub_v = np.exp(1j * phase_sub_v)
             h_est = self.linear_search(e_phase_sub_v, self.par2ph["height"], self.height_search_space)
 
-        self.param = {"height": h_est, "velocity": v_est}
+        self.result = {"height": h_est, "velocity": v_est}
 
     def grid_periodogram(self):
         """
@@ -118,7 +118,7 @@ class Periodogram:
         sub_phase = self.arc_phase.reshape(-1, 1) - search_phase_space
 
         # Calculate sub_phase and sum along the image count dimension to obtain the objective function value.
-        gamma_temporal = np.sum(np.exp(1j * sub_phase), axis=0, keepdims=True) / self.param["Nifg"]
+        gamma_temporal = np.sum(np.exp(1j * sub_phase), axis=0, keepdims=True) / self.params["Nifg"]
 
         # Obtain the index of the maximum objective function value.
         max_index = np.argmax(np.abs(gamma_temporal))
@@ -129,12 +129,12 @@ class Periodogram:
         h_est = self.height_search_space[param_index[1]]
         v_est = self.velocity_search_space[param_index[0]]
 
-        self.param = {"height": h_est, "velocity": v_est}
+        self.result = {"height": h_est, "velocity": v_est}
 
     def periodogram_estimation(self):
-        if self.param["period_est_mode"] == "linear-period":
+        if self.params["period_est_mode"] == "linear-period":
             self.linear_periodogram()
-        elif self.param["period_est_mode"] == "grid-period":
+        elif self.params["period_est_mode"] == "grid-period":
             self.grid_periodogram()
-        return self.param["height"], self.param["velocity"]
+        return self.result["height"], self.result["velocity"]
 

@@ -1,7 +1,7 @@
 import numpy as np
 import json
 
-import component.utilis as utilis
+import linear_search_periodogram.utilis as utilis
 import time
 from joblib import Parallel, delayed
 
