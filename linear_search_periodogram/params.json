@@ -1,0 +1,23 @@
+{
+    "sentinel-1":{
+        "Bn":150,
+        "revisit_cycle": 12,
+        "H":693000,
+        "incidence_angle": 38,
+        "wavelength":0.056
+    },
+    "Nifg": 30, 
+    "param_simulation": {
+        "height":10,
+        "velocity":0.01
+    },
+    "noise_level": 10, 
+    "search_range": {
+        "h_range":[-20 ,20],
+        "v_range":[-1450,1450],
+        "h_step":1,
+        "v_step":0.0001
+    },
+    "period_est_mode": "linear-period",
+    "iterative_times":2
+}
