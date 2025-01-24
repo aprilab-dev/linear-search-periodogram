@@ -1,88 +1,114 @@
 import numpy as np
 
 class Periodogram:
-    """Periodogram method for temporal phase unwrapping"""
-
+    """
+    Periodogram method for temporal phase unwrapping"""
     def __init__(self, param, phase_obs, par2ph) -> None:
-        """Initialize parameters
-
+        """
         Parameters
         ----------
-        param : _dict_
-            _Dictionary file, containing all the parameters in the JSON file._
-        phase_obs : _ndarray_
-            _The simulated observed phase is wrapped to the range [-pi, pi]._
-        par2ph : _dict_
-            _The conversion coefficient from parameters v and h to phase__
+        param : dict
+            Dictionary file containing all parameters from the meta (.json) file.
+        phase_obs : ndarray
+            Simulated observed phase wrapped to [-pi, pi].
+        par2ph : dict
+            Conversion coefficient from parameters v and h to phase.
         """
-        self.params      = param
-        self.arc_phase  = phase_obs
-        self.par2ph     = par2ph
-        self.result     = {"height": 0, "velocity": 0}
+        self.params = param
+        self.arc_phase = phase_obs
+        self.par2ph = par2ph
+        self.result = {"height": 0, "velocity": 0}
 
-        # Construct the search space.
-        h_start = self.params["search_range"]["h_range"][0]
-        h_end   = self.params["search_range"]["h_range"][1]
-        h_step  = self.params["search_range"]["h_step"]
+        # Construct the search spaces for height and velocity
+        create_search_space = lambda bounds, step: np.arange(bounds[0], bounds[1] + 1, 1) * step
 
-        v_start = self.params["search_range"]["h_range"][0]
-        v_end   = self.params["search_range"]["h_range"][1]
-        v_step  = self.params["search_range"]["v_step"]
+        self.height_search_space = create_search_space(
+            self.params["search_range"]["h_range"],
+            self.params["search_range"]["h_step"]
+        )
 
-        self.height_search_space   = np.arange(h_start, h_end + 1, 1) * h_step
-        self.velocity_search_space = np.arange(v_start, v_end + 1, 1) * v_step
+        self.velocity_search_space = create_search_space(
+            self.params["search_range"]["v_range"],
+            self.params["search_range"]["v_step"]
+        )
 
-        
 
     @staticmethod
-    def linear_search(exp_phase, p2ph, search_space):
-        """linear_search
+    def linear_search(phase, par2ph, search_space):
+        """Linear search to find parameter value that maximizes objective function.
+
         Parameters
         ----------
-        exp_phase : The complex signal form of the observed phase.
-        p2ph : Conversion coefficient from parameters to phase.
-        search_spaceW : Parameter search space.
+        phase : numpy.ndarray
+            Complex signal form of the observed phase.
+        par2ph : numpy.ndarray
+            Conversion coefficient from parameters to phase.
+        search_space : numpy.ndarray
+            Parameter search space.
 
         Returns
         -------
-        The search value that maximizes the objective function.
+        float
+            Search value that maximizes the objective function.
         """
-        sub_e = np.exp(-1j * (p2ph.reshape(-1, 1) * search_space.reshape(1, -1))) 
-        objective_function = np.mean(exp_phase.reshape(-1, 1) * sub_e, axis=0)  
-        result = search_space[np.argmax(np.abs(objective_function))]
-        return result
+        # Calculate residual phase for each value in search space
+        residue_phase = phase - np.outer(par2ph, search_space)
+
+        # Calculate coherence (objective function) for each residual
+        complex_signal = np.exp(1j * residue_phase)
+        coherence = np.abs(np.sum(complex_signal, axis=0))
+
+        # Find value that maximizes coherence
+        max_idx = np.argmax(coherence)
+        estimated_value = search_space[max_idx]
+
+        return estimated_value
 
 
     def linear_periodogram(self):
         """
             Linear-Periodogram method
         """
-        # step1: 
-        # calculate the height phase
-        delta_phase_h = self.height_search_space.reshape(-1, 1) * self.par2ph["height"].reshape(1, -1)
-        # remove height term from delta_phase
-        sub_phase_h = self.arc_phase - delta_phase_h
 
-        # step2: 
-        # sum over different height values
-        e_phase_sub_h = np.sum(np.exp(1j * sub_phase_h), axis=0)
+        #  --------------------------------------------
+        #  Step1: calculate the height phase
+        #  --------------------------------------------
 
-        # step3: 
-        # linear search for delta_v
-        v_est = self.linear_search(e_phase_sub_h, self.par2ph["velocity"], self.velocity_search_space)
-   
-        # step4:
-        # remove velocity term 
-        phase_sub_v = self.arc_phase - v_est * self.par2ph["velocity"]
-        # linear search to determine delta_h
-        e_phase_sub_v = np.exp(1j * phase_sub_v)
-        h_est = self.linear_search(e_phase_sub_v, self.par2ph["height"], self.height_search_space)
+        # Calculate height-phase from all height values within the search space
+        phase_hght = np.outer(self.height_search_space, self.par2ph["height"])
+        # remove height phase from delta_phase
+        hght_removed = self.arc_phase - phase_hght
 
-        self.result = {"height": h_est, "velocity": v_est}
+        #  --------------------------------------------
+        #  Step2: sum over different height values
+        #  --------------------------------------------
+        # Convert height-removed phase to complex exponential and sum over heights
+        hght_removed_sum = np.sum(np.exp(1j * hght_removed), axis=0)
+
+        #  --------------------------------------------
+        #  Step3: linear search for delta_v
+        #  --------------------------------------------
+        estimated_velocity = self.linear_search(
+            np.angle(hght_removed_sum),
+            self.par2ph["velocity"],
+            self.velocity_search_space
+        )
+
+        #  --------------------------------------------
+        #  Step4: linear search for height estimate
+        #  --------------------------------------------
+        vel_removed = self.arc_phase - estimated_velocity * self.par2ph["velocity"]
+        estimated_height = self.linear_search(
+            vel_removed,
+            self.par2ph["height"],
+            self.height_search_space
+        )
+
+        self.result = {"height": estimated_height, "velocity": estimated_velocity}
 
         if self.params["iterative_times"] != 0:
             self.iteration()
-    
+
     def iteration(self):
         iterative_times = self.params["iterative_times"]
         h_est = self.result["height"]
@@ -90,19 +116,20 @@ class Periodogram:
         for i in range(iterative_times):
             # remove height term from delta_phase
             phase_sub_h = self.arc_phase - h_est * self.par2ph["height"]
-            
+
             # linear search for param_v
             e_phase_sub_h = np.exp(1j * phase_sub_h)
             v_est = self.linear_search(e_phase_sub_h, self.par2ph["velocity"], self.velocity_search_space)
 
             # remove velocity term from delta_phase
             phase_sub_v = self.arc_phase - v_est * self.par2ph["velocity"]
-            
+
             # linear search for param_h
             e_phase_sub_v = np.exp(1j * phase_sub_v)
             h_est = self.linear_search(e_phase_sub_v, self.par2ph["height"], self.height_search_space)
 
         self.result = {"height": h_est, "velocity": v_est}
+
 
     def grid_periodogram(self):
         """
@@ -113,7 +140,7 @@ class Periodogram:
         h2ph = self.par2ph["height"].reshape(-1, 1)
         search_phase_space = np.kron(self.velocity_search_space * v2ph, np.ones((1, len(self.height_search_space)))) + \
                              np.kron(np.ones((1, len(self.velocity_search_space))), self.height_search_space * h2ph)
-        
+
         # Calculate the difference between the observed phase and the search phase space.
         sub_phase = self.arc_phase.reshape(-1, 1) - search_phase_space
 
